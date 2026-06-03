@@ -80,10 +80,13 @@ const filteredWines = computed(() => {
   if (!search.value.trim()) return wines.value
   const q = search.value.toLowerCase()
   return wines.value.filter(w =>
-    (w.name       || '').toLowerCase().includes(q) ||
-    (w.sub_region || '').toLowerCase().includes(q) ||
-    (w.category   || '').toLowerCase().includes(q) ||
-    String(w.vintage || '').includes(q)
+    (w.name             || '').toLowerCase().includes(q) ||
+    (w.sub_region       || '').toLowerCase().includes(q) ||
+    (w.category         || '').toLowerCase().includes(q) ||
+    (w.merchant         || '').toLowerCase().includes(q) ||
+    (w.storage_location || '').toLowerCase().includes(q) ||
+    (w.notes            || '').toLowerCase().includes(q) ||
+    String(w.vintage    || '').includes(q)
   )
 })
 
