@@ -70,7 +70,7 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from 'vue'
+import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from './supabase'
 import { calcUrgency } from './utils/urgency'
 import WineTable from './components/WineTable.vue'
@@ -161,6 +161,8 @@ function onAdded(newWine) {
   wines.value.unshift(withUrgency(newWine))
   showAddModal.value = false
 }
+
+watch(session, (s) => { if (s) loadWines() })
 
 async function signOut() {
   await supabase.auth.signOut()
