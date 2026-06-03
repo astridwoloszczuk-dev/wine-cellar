@@ -86,6 +86,8 @@ const filteredWines = computed(() => {
     (w.merchant         || '').toLowerCase().includes(q) ||
     (w.storage_location || '').toLowerCase().includes(q) ||
     (w.notes            || '').toLowerCase().includes(q) ||
+    (w.grape_variety    || '').toLowerCase().includes(q) ||
+    (w.super_region     || '').toLowerCase().includes(q) ||
     String(w.vintage    || '').includes(q)
   )
 })
