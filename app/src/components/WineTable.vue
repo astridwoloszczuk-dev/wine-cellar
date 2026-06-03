@@ -53,6 +53,17 @@ const columnDefs = [
     type: 'numericColumn',
     valueFormatter: p => gbp(p.value)
   },
+  {
+    headerName: 'Score',
+    width: 100,
+    type: 'numericColumn',
+    valueGetter: p => p.data?.tasting_summary?.avg ?? null,
+    valueFormatter: p => {
+      const s = p.data?.tasting_summary
+      if (!s) return ''
+      return `${s.avg} ★ ×${s.count}`
+    },
+  },
   { field: 'window_start', headerName: 'Start', width: 75 },
   { field: 'window_mid',   headerName: 'Mid',   width: 75 },
   { field: 'window_end',   headerName: 'End',   width: 75 },

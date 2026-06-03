@@ -105,6 +105,27 @@
           <textarea v-model="form.notes" rows="3" placeholder="Any notes…" />
         </div>
       </section>
+
+      <section class="section">
+        <h3>Tastings</h3>
+        <div v-if="tastingsLoading" class="tastings-loading">Loading…</div>
+        <div v-else-if="tastings.length">
+          <div class="tastings-aggregate">
+            <span class="agg-formula">{{ aggregateFormula }}</span>
+            <span class="agg-equals"> = </span>
+            <strong class="agg-avg">{{ avgScore }}</strong>
+          </div>
+          <div class="tasting-list">
+            <div v-for="t in tastings" :key="t.id" class="tasting-row">
+              <span class="t-date">{{ formatDate(t.drunk_at) }}</span>
+              <span class="t-score">{{ t.score != null ? t.score + '/10' : '—' }}</span>
+              <span v-if="t.fault" class="t-fault" :title="t.fault_note">🚫</span>
+              <span class="t-notes">{{ t.notes || '' }}</span>
+            </div>
+          </div>
+        </div>
+        <p v-else class="no-tastings">No tastings recorded yet</p>
+      </section>
     </div>
 
     <div class="panel-footer">
@@ -126,13 +147,54 @@ import { calcUrgency, URGENCY_LABEL, URGENCY_STYLE, STORAGE_LOCATIONS } from '..
 const props = defineProps({ wine: Object })
 const emit  = defineEmits(['close', 'saved'])
 
-const saving = ref(false)
-const saved  = ref(false)
-const error  = ref('')
+const saving          = ref(false)
+const saved           = ref(false)
+const error           = ref('')
+const tastings        = ref([])
+const tastingsLoading = ref(false)
 
 const form = ref(toForm(props.wine))
 
-watch(() => props.wine, w => { form.value = toForm(w) })
+watch(() => props.wine, w => {
+  form.value = toForm(w)
+  if (w?.id) loadTastings(w.id)
+})
+
+async function loadTastings(wineId) {
+  tastingsLoading.value = true
+  tastings.value = []
+  const { data, error: err } = await supabase
+    .from('tastings')
+    .select('*')
+    .eq('wine_id', wineId)
+    .order('drunk_at', { ascending: false })
+  tastingsLoading.value = false
+  if (!err) tastings.value = data || []
+}
+
+const tastingScores = computed(() =>
+  tastings.value.map(t => t.score).filter(s => s != null).map(Number)
+)
+
+const aggregateFormula = computed(() => {
+  if (!tastingScores.value.length) return ''
+  return tastingScores.value.join('+') + '/' + tastingScores.value.length
+})
+
+const avgScore = computed(() => {
+  if (!tastingScores.value.length) return null
+  const avg = tastingScores.value.reduce((a, b) => a + b, 0) / tastingScores.value.length
+  return avg % 1 === 0 ? avg.toFixed(0) : avg.toFixed(1)
+})
+
+function formatDate(d) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-')
+  return `${day}.${m}.${y}`
+}
+
+// Load tastings on first mount
+if (props.wine?.id) loadTastings(props.wine.id)
 
 function toForm(w) {
   return {
@@ -283,4 +345,37 @@ async function save() {
   color: #555;
 }
 .btn-secondary:hover { background: #f5f5f5; }
+
+.tastings-loading { font-size: 0.8rem; color: #aaa; }
+
+.tastings-aggregate {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  margin-bottom: 8px;
+  font-family: monospace;
+  font-size: 0.85rem;
+}
+.agg-formula { color: #666; }
+.agg-equals  { color: #999; }
+.agg-avg     { font-size: 1rem; color: #8B1A1A; }
+
+.tasting-list { display: flex; flex-direction: column; gap: 4px; }
+
+.tasting-row {
+  display: grid;
+  grid-template-columns: 70px 48px 20px 1fr;
+  gap: 6px;
+  align-items: start;
+  padding: 4px 0;
+  border-bottom: 1px solid #f0f0f0;
+  font-size: 0.78rem;
+}
+.tasting-row:last-child { border-bottom: none; }
+.t-date  { color: #888; white-space: nowrap; }
+.t-score { font-weight: 600; color: #2c3e50; }
+.t-fault { font-size: 0.75rem; cursor: default; }
+.t-notes { color: #555; white-space: pre-wrap; word-break: break-word; }
+
+.no-tastings { font-size: 0.8rem; color: #aaa; }
 </style>

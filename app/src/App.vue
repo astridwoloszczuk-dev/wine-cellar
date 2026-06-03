@@ -81,6 +81,7 @@ import LoginScreen from './components/LoginScreen.vue'
 const session = ref(null)
 
 const wines        = ref([])
+const allTastings  = ref([])
 const loading      = ref(true)
 const selectedWine = ref(null)
 const showAddModal = ref(false)
@@ -127,22 +128,46 @@ function withUrgency(w) {
   return { ...w, urgency: w.window_end ? calcUrgency(w.window_end, w.window_mid) : (w.urgency || null) }
 }
 
+function buildTastingSummary(wineId, tastings) {
+  const scores = tastings
+    .filter(t => t.wine_id === wineId && t.score != null)
+    .map(t => Number(t.score))
+  if (!scores.length) return null
+  const avg = scores.reduce((a, b) => a + b, 0) / scores.length
+  return {
+    avg:   avg % 1 === 0 ? avg.toFixed(0) : avg.toFixed(1),
+    count: scores.length,
+  }
+}
+
 async function loadWines() {
   loading.value = true
-  const all = []
-  let offset = 0
-  while (true) {
-    const { data, error } = await supabase
-      .from('wines')
-      .select('*')
-      .order('name')
-      .range(offset, offset + 999)
-    if (error) { console.error(error); break }
-    all.push(...data)
-    if (data.length < 1000) break
-    offset += 1000
-  }
-  wines.value = all.map(withUrgency)
+
+  const [winesPages, tastingsRes] = await Promise.all([
+    (async () => {
+      const all = []
+      let offset = 0
+      while (true) {
+        const { data, error } = await supabase
+          .from('wines')
+          .select('*')
+          .order('name')
+          .range(offset, offset + 999)
+        if (error) { console.error(error); break }
+        all.push(...data)
+        if (data.length < 1000) break
+        offset += 1000
+      }
+      return all
+    })(),
+    supabase.from('tastings').select('*'),
+  ])
+
+  allTastings.value = tastingsRes.data || []
+  wines.value = winesPages.map(w => ({
+    ...withUrgency(w),
+    tasting_summary: buildTastingSummary(w.id, allTastings.value),
+  }))
   loading.value = false
 }
 
@@ -151,14 +176,20 @@ function onSelect(wine) {
 }
 
 function onSaved(updated) {
-  const u = withUrgency(updated)
+  const u = {
+    ...withUrgency(updated),
+    tasting_summary: buildTastingSummary(updated.id, allTastings.value),
+  }
   const idx = wines.value.findIndex(w => w.id === u.id)
   if (idx !== -1) wines.value[idx] = u
   selectedWine.value = u
 }
 
 function onAdded(newWine) {
-  wines.value.unshift(withUrgency(newWine))
+  wines.value.unshift({
+    ...withUrgency(newWine),
+    tasting_summary: null,
+  })
   showAddModal.value = false
 }
 

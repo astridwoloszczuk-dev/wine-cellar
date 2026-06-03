@@ -29,13 +29,24 @@ jobs:
           cache: npm
           cache-dependency-path: app/package-lock.json
 
-      - name: Install dependencies
+      - name: Install desktop deps
         run: npm ci
         working-directory: app
 
-      - name: Build
+      - name: Build desktop
         run: npm run build
         working-directory: app
+
+      - name: Install mobile deps
+        run: npm ci
+        working-directory: app-mobile
+
+      - name: Build mobile
+        run: npm run build
+        working-directory: app-mobile
+
+      - name: Merge mobile into desktop dist
+        run: mkdir -p app/dist/home && cp -r app-mobile/dist/* app/dist/home/
 
       - uses: actions/upload-pages-artifact@v3
         with:
