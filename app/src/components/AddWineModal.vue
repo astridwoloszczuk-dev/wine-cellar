@@ -27,9 +27,19 @@
                 <input v-model="form.vintage" type="text" placeholder="2019 or NV" />
               </div>
             </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Sub-region</label>
+                <input v-model="form.sub_region" type="text" placeholder="e.g. Margaux, Meursault" />
+              </div>
+              <div class="field">
+                <label>Country</label>
+                <input v-model="form.super_region" type="text" placeholder="e.g. France" />
+              </div>
+            </div>
             <div class="field">
-              <label>Sub-region</label>
-              <input v-model="form.sub_region" type="text" placeholder="e.g. Margaux, Meursault" />
+              <label>Grape variety</label>
+              <input v-model="form.grape_variety" type="text" placeholder="e.g. Cabernet Sauvignon" />
             </div>
           </section>
 
@@ -37,12 +47,20 @@
             <h3>Purchase</h3>
             <div class="field-row">
               <div class="field">
+                <label>Status</label>
+                <select v-model="form.status">
+                  <option v-for="s in STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
+                </select>
+              </div>
+              <div class="field">
                 <label>Merchant</label>
                 <select v-model="form.merchant" @change="onMerchantChange">
                   <option value="">— select —</option>
                   <option v-for="m in MERCHANTS" :key="m" :value="m">{{ m }}</option>
                 </select>
               </div>
+            </div>
+            <div class="field-row">
               <div class="field">
                 <label>Storage location</label>
                 <select v-model="form.storage_location">
@@ -50,12 +68,12 @@
                   <option v-for="loc in STORAGE_LOCATIONS" :key="loc" :value="loc">{{ loc }}</option>
                 </select>
               </div>
-            </div>
-            <div class="field-row">
               <div class="field">
                 <label>Bottles <span class="req">*</span></label>
                 <input v-model.number="form.bottle_count" type="number" min="1" placeholder="6" />
               </div>
+            </div>
+            <div class="field-row">
               <div class="field">
                 <label>Format</label>
                 <select v-model="form.bottle_format">
@@ -65,13 +83,29 @@
                 </select>
               </div>
               <div class="field">
-                <label>Cost/btl (£) <span class="req">*</span></label>
+                <label>Cost/btl (£)</label>
                 <input v-model.number="form.cost_per_bottle" type="number" step="0.01" min="0" placeholder="0.00" />
               </div>
             </div>
-            <div class="field">
-              <label>Invoice no.</label>
-              <input v-model="form.invoice_no" type="text" />
+            <div class="field-row">
+              <div class="field">
+                <label>Invoice no.</label>
+                <input v-model="form.invoice_no" type="text" />
+              </div>
+              <div class="field">
+                <label>Invoice date</label>
+                <input v-model="form.invoice_date" type="date" />
+              </div>
+            </div>
+            <div class="field-row">
+              <div class="field">
+                <label>Delivery date</label>
+                <input v-model="form.delivery_date" type="date" />
+              </div>
+              <div class="field">
+                <label>Expected delivery</label>
+                <input v-model="form.expected_delivery" type="text" placeholder="e.g. 2027 Q1" />
+              </div>
             </div>
           </section>
         </div>
@@ -119,7 +153,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { supabase } from '../supabase'
-import { calcUrgency, URGENCY_LABEL, URGENCY_STYLE, STORAGE_LOCATIONS, MERCHANTS, CATEGORIES } from '../utils/urgency'
+import { calcUrgency, URGENCY_LABEL, URGENCY_STYLE, STORAGE_LOCATIONS, MERCHANTS, CATEGORIES, STATUSES } from '../utils/urgency'
 
 const emit = defineEmits(['close', 'saved'])
 
@@ -137,9 +171,10 @@ const MERCHANT_TO_LOCATION = {
 }
 
 const form = ref({
-  name: '', category: '', sub_region: '', vintage: '',
-  merchant: '', storage_location: '', bottle_count: null,
-  bottle_format: '75cl', cost_per_bottle: null, invoice_no: '',
+  name: '', category: '', sub_region: '', super_region: '', grape_variety: '', vintage: '',
+  status: 'in_storage', merchant: '', storage_location: '', bottle_count: null,
+  bottle_format: '75cl', cost_per_bottle: null,
+  invoice_no: '', invoice_date: '', delivery_date: '', expected_delivery: '',
   window_start: '', window_mid: '', window_end: '', notes: '',
 })
 
@@ -150,8 +185,7 @@ function onMerchantChange() {
 
 const valid = computed(() =>
   form.value.name.trim() &&
-  form.value.bottle_count > 0 &&
-  form.value.cost_per_bottle > 0
+  form.value.bottle_count > 0
 )
 
 const urgency      = computed(() => calcUrgency(form.value.window_end, form.value.window_mid))
@@ -165,23 +199,28 @@ async function save() {
   const vintage = parseInt(form.value.vintage)
 
   const payload = {
-    name:             form.value.name.trim(),
-    category:         form.value.category         || null,
-    sub_region:       form.value.sub_region        || null,
-    vintage:          isNaN(vintage) ? null : vintage,
-    merchant:         form.value.merchant          || null,
-    storage_location: form.value.storage_location  || null,
-    bottle_count:     form.value.bottle_count,
-    bottle_format:    form.value.bottle_format,
-    cost_per_bottle:  form.value.cost_per_bottle,
-    invoice_no:       form.value.invoice_no        || null,
-    window_start:     form.value.window_start      || null,
-    window_mid:       form.value.window_mid        || null,
-    window_end:       form.value.window_end        || null,
-    notes:            form.value.notes             || null,
-    urgency:          urgency.value,
-    status:           'in_storage',
-    paid:             true,
+    name:              form.value.name.trim(),
+    category:          form.value.category          || null,
+    sub_region:        form.value.sub_region         || null,
+    super_region:      form.value.super_region        || null,
+    grape_variety:     form.value.grape_variety       || null,
+    vintage:           isNaN(vintage) ? null : vintage,
+    status:            form.value.status,
+    merchant:          form.value.merchant           || null,
+    storage_location:  form.value.storage_location   || null,
+    bottle_count:      form.value.bottle_count,
+    bottle_format:     form.value.bottle_format,
+    cost_per_bottle:   form.value.cost_per_bottle    || null,
+    invoice_no:        form.value.invoice_no         || null,
+    invoice_date:      form.value.invoice_date       || null,
+    delivery_date:     form.value.delivery_date      || null,
+    expected_delivery: form.value.expected_delivery  || null,
+    window_start:      form.value.window_start       || null,
+    window_mid:        form.value.window_mid         || null,
+    window_end:        form.value.window_end         || null,
+    notes:             form.value.notes              || null,
+    urgency:           urgency.value,
+    paid:              !['ordered'].includes(form.value.status),
   }
 
   const { data, error: err } = await supabase

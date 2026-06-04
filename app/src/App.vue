@@ -16,11 +16,14 @@
       <input v-model="filters.search" placeholder="Search wine, region…" class="filter-search" />
       <select v-model="filters.status" class="filter-select">
         <option value="">All statuses</option>
+        <option value="ordered">Ordered — not paid</option>
+        <option value="paid_not_delivered">Paid — not delivered</option>
         <option value="in_storage">In storage</option>
         <option value="pending_listing">Pending listing</option>
         <option value="listed">Listed</option>
         <option value="sold">Sold</option>
         <option value="consumed">Consumed</option>
+        <option value="gifted">Gifted</option>
       </select>
       <select v-model="filters.location" class="filter-select">
         <option value="">All locations</option>

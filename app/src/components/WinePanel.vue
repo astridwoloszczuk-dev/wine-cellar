@@ -14,18 +14,51 @@
         <div class="field">
           <label>Status</label>
           <select v-model="form.status">
-            <option value="in_storage">In storage</option>
-            <option value="pending_listing">Pending listing</option>
-            <option value="listed">Listed</option>
-            <option value="sold">Sold</option>
-            <option value="consumed">Consumed</option>
+            <option v-for="s in STATUSES" :key="s.value" :value="s.value">{{ s.label }}</option>
           </select>
         </div>
         <div class="field">
           <label>Storage location</label>
           <select v-model="form.storage_location">
+            <option value="">— select —</option>
             <option v-for="loc in STORAGE_LOCATIONS" :key="loc" :value="loc">{{ loc }}</option>
           </select>
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>Identity</h3>
+        <div class="field">
+          <label>Grape variety</label>
+          <input v-model="form.grape_variety" type="text" placeholder="e.g. Pinot Noir" />
+        </div>
+        <div class="field">
+          <label>Country</label>
+          <input v-model="form.super_region" type="text" placeholder="e.g. France" />
+        </div>
+      </section>
+
+      <section class="section">
+        <h3>Purchase & Delivery</h3>
+        <div class="field-row">
+          <div class="field">
+            <label>Invoice no.</label>
+            <input v-model="form.invoice_no" type="text" />
+          </div>
+          <div class="field">
+            <label>Invoice date</label>
+            <input v-model="form.invoice_date" type="date" />
+          </div>
+        </div>
+        <div class="field-row">
+          <div class="field">
+            <label>Delivery date</label>
+            <input v-model="form.delivery_date" type="date" />
+          </div>
+          <div class="field">
+            <label>Expected delivery</label>
+            <input v-model="form.expected_delivery" type="text" placeholder="e.g. 2027 Q1" />
+          </div>
         </div>
       </section>
 
@@ -142,7 +175,7 @@
 <script setup>
 import { ref, computed, watch } from 'vue'
 import { supabase } from '../supabase'
-import { calcUrgency, URGENCY_LABEL, URGENCY_STYLE, STORAGE_LOCATIONS } from '../utils/urgency'
+import { calcUrgency, URGENCY_LABEL, URGENCY_STYLE, STORAGE_LOCATIONS, STATUSES } from '../utils/urgency'
 
 const props = defineProps({ wine: Object })
 const emit  = defineEmits(['close', 'saved'])
@@ -200,6 +233,12 @@ function toForm(w) {
   return {
     status:               w.status               || 'in_storage',
     storage_location:     w.storage_location      || '',
+    grape_variety:        w.grape_variety          || '',
+    super_region:         w.super_region           || '',
+    invoice_no:           w.invoice_no             || '',
+    invoice_date:         w.invoice_date           || '',
+    delivery_date:        w.delivery_date          || '',
+    expected_delivery:    w.expected_delivery      || '',
     value_per_bottle:     w.value_per_bottle      ?? null,
     sold_price_per_bottle:w.sold_price_per_bottle ?? null,
     sold_at:              w.sold_at               || '',
@@ -226,15 +265,21 @@ async function save() {
 
   const payload = {
     status:               form.value.status,
-    storage_location:     form.value.storage_location,
-    value_per_bottle:     form.value.value_per_bottle   || null,
+    storage_location:     form.value.storage_location     || null,
+    grape_variety:        form.value.grape_variety         || null,
+    super_region:         form.value.super_region          || null,
+    invoice_no:           form.value.invoice_no            || null,
+    invoice_date:         form.value.invoice_date          || null,
+    delivery_date:        form.value.delivery_date         || null,
+    expected_delivery:    form.value.expected_delivery     || null,
+    value_per_bottle:     form.value.value_per_bottle      || null,
     sold_price_per_bottle:form.value.sold_price_per_bottle || null,
-    sold_at:              form.value.sold_at             || null,
-    sold_via:             form.value.sold_via            || null,
-    window_start:         form.value.window_start        || null,
-    window_mid:           form.value.window_mid          || null,
-    window_end:           form.value.window_end          || null,
-    notes:                form.value.notes               || null,
+    sold_at:              form.value.sold_at               || null,
+    sold_via:             form.value.sold_via              || null,
+    window_start:         form.value.window_start          || null,
+    window_mid:           form.value.window_mid            || null,
+    window_end:           form.value.window_end            || null,
+    notes:                form.value.notes                 || null,
     urgency:              urgency.value,
   }
 

@@ -45,7 +45,18 @@ export const STATUS_STYLE = {
 export const STORAGE_LOCATIONS = [
   'BBR Bond', 'Justerini Bond', 'IG Bond',
   'Fine and Rare', 'Hatton Edwards', 'Lay Wheeler',
-  'Robertson Bond', 'Vinotheque', 'Wien'
+  'Robertson Bond', 'Vinotheque', 'In transit', 'Wien'
+]
+
+export const STATUSES = [
+  { value: 'ordered',           label: 'Ordered — not paid' },
+  { value: 'paid_not_delivered',label: 'Paid — not delivered' },
+  { value: 'in_storage',        label: 'In storage' },
+  { value: 'pending_listing',   label: 'Pending listing' },
+  { value: 'listed',            label: 'Listed' },
+  { value: 'sold',              label: 'Sold' },
+  { value: 'consumed',          label: 'Consumed' },
+  { value: 'gifted',            label: 'Gifted' },
 ]
 
 export const MERCHANTS = [
