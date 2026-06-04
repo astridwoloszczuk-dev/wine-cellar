@@ -106,9 +106,11 @@ const filteredWines = computed(() => {
   if (search) {
     const q = search.toLowerCase()
     r = r.filter(w =>
-      (w.name       || '').toLowerCase().includes(q) ||
-      (w.sub_region || '').toLowerCase().includes(q) ||
-      (w.category   || '').toLowerCase().includes(q) ||
+      (w.name         || '').toLowerCase().includes(q) ||
+      (w.sub_region   || '').toLowerCase().includes(q) ||
+      (w.category     || '').toLowerCase().includes(q) ||
+      (w.grape_variety|| '').toLowerCase().includes(q) ||
+      (w.super_region || '').toLowerCase().includes(q) ||
       String(w.vintage || '').includes(q)
     )
   }
