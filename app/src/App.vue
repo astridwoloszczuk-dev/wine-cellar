@@ -136,8 +136,8 @@ const cellarConfig  = ref(null)
 
 async function loadConfig() {
   try {
-    const res = await fetch(import.meta.env.BASE_URL + 'cellar-config.json')
-    cellarConfig.value = await res.json()
+    const { data } = await supabase.from('settings').select('value').eq('key', 'cellar_config').single()
+    if (data) cellarConfig.value = data.value
   } catch { /* config missing, use defaults */ }
 }
 

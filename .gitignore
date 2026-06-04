@@ -2,3 +2,4 @@ node_modules/
 app/dist/
 /.env
 *.xlsx
+app/public/cellar-config.json
