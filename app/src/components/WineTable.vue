@@ -8,14 +8,18 @@
       :rowData="wines"
       :defaultColDef="defaultColDef"
       :getRowStyle="getRowStyle"
-      rowSelection="single"
+      rowSelection="multiple"
+      :suppressRowClickSelection="true"
       @row-clicked="e => $emit('select', e.data)"
+      @grid-ready="onGridReady"
+      @selection-changed="onSelectionChanged"
       style="width:100%; height:100%;"
     />
   </div>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { AgGridVue } from 'ag-grid-vue3'
 import 'ag-grid-community/styles/ag-grid.css'
 import 'ag-grid-community/styles/ag-theme-alpine.css'
@@ -27,11 +31,20 @@ const props = defineProps({
   selectedId: { type: String, default: null }
 })
 
-defineEmits(['select'])
+const emit = defineEmits(['select', 'selection-changed'])
+
+const gridApi = ref(null)
+function onGridReady(p) { gridApi.value = p.api }
+function onSelectionChanged() {
+  emit('selection-changed', gridApi.value?.getSelectedRows() || [])
+}
+
+defineExpose({ clearSelection: () => gridApi.value?.deselectAll() })
 
 const gbp = v => v != null ? `£${Number(v).toFixed(0)}` : ''
 
 const columnDefs = [
+  { checkboxSelection: true, headerCheckboxSelection: true, width: 44, pinned: 'left', filter: false, sortable: false, resizable: false, suppressMenu: true },
   { field: 'name',             headerName: 'Wine',       flex: 3,   minWidth: 200 },
   { field: 'vintage',          headerName: 'Vintage',    width: 88  },
   { field: 'category',         headerName: 'Category',   flex: 1.5, minWidth: 130 },

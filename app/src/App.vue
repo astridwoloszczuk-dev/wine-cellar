@@ -32,12 +32,38 @@
       <button v-if="anyFilter" class="btn-clear" @click="clearFilters">Clear all</button>
     </div>
 
+    <div class="summary-panel">
+      <button class="summary-toggle" @click="showSummary = !showSummary">
+        {{ showSummary ? '▲' : '▼' }} Summary
+      </button>
+      <template v-if="showSummary">
+        <span class="sum-stat"><strong>{{ stats.lots.toLocaleString() }}</strong> lots</span>
+        <span class="sum-sep">·</span>
+        <span class="sum-stat"><strong>{{ stats.bottles.toLocaleString() }}</strong> bottles</span>
+        <span v-if="stats.value" class="sum-sep">·</span>
+        <span v-if="stats.value" class="sum-stat">Value <strong>£{{ Math.round(stats.value).toLocaleString() }}</strong></span>
+        <span v-if="anyFilter" class="sum-sep">·</span>
+        <span v-for="(count, urg) in urgencyBreakdown" :key="urg" class="sum-urgency" :class="urg">
+          {{ URGENCY_LABEL[urg] }}: <strong>{{ count }}</strong>
+        </span>
+      </template>
+    </div>
+
+    <div v-if="selectedWines.length" class="bulk-bar">
+      <span class="bulk-info">{{ selectedWines.length }} wine{{ selectedWines.length !== 1 ? 's' : '' }} selected — {{ selectedBottles }} bottle{{ selectedBottles !== 1 ? 's' : '' }}</span>
+      <button class="btn-bulk-action" @click="requestDelivery">📦 Request delivery</button>
+      <button class="btn-bulk-action btn-sale" @click="markForSale" :disabled="bulkSaving">🏷 Mark for sale</button>
+      <button class="btn-bulk-clear" @click="clearSelection">✕ Clear</button>
+    </div>
+
     <div class="content" :class="{ 'panel-open': selectedWine }">
       <WineTable
+        ref="wineTableRef"
         :wines="filteredWines"
         :loading="loading"
         :selectedId="selectedWine?.id"
         @select="onSelect"
+        @selection-changed="onSelectionChanged"
       />
       <WinePanel
         v-if="selectedWine"
@@ -61,13 +87,29 @@
       @close="showAddModal = false"
       @saved="onAdded"
     />
+
+    <div v-if="deliveryModal" class="overlay" @click.self="deliveryModal = null">
+      <div class="delivery-modal">
+        <div class="dm-header">
+          <h2>Delivery requests</h2>
+          <button @click="deliveryModal = null">✕</button>
+        </div>
+        <div class="dm-body">
+          <div v-for="e in deliveryModal.emails" :key="e.merchant" class="dm-email">
+            <div class="dm-merchant">{{ e.merchant }} — {{ e.wines.length }} lot{{ e.wines.length !== 1 ? 's' : '' }}</div>
+            <textarea class="dm-text" :value="e.body" rows="14" readonly />
+            <button class="btn-copy" @click="navigator.clipboard.writeText(e.body)">Copy to clipboard</button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from './supabase'
-import { calcUrgency, STATUSES, STORAGE_LOCATIONS } from './utils/urgency'
+import { calcUrgency, STATUSES, STORAGE_LOCATIONS, URGENCY_LABEL } from './utils/urgency'
 import WineTable from './components/WineTable.vue'
 import WinePanel from './components/WinePanel.vue'
 import AddWineModal from './components/AddWineModal.vue'
@@ -82,6 +124,11 @@ const loading      = ref(true)
 const selectedWine = ref(null)
 const showAddModal = ref(false)
 const filters      = ref({ search: '', status: [], location: [], urgency: [] })
+const selectedWines = ref([])
+const wineTableRef  = ref(null)
+const showSummary   = ref(true)
+const deliveryModal = ref(null)
+const bulkSaving    = ref(false)
 
 const locationOptions = computed(() => {
   const s = new Set(wines.value.map(w => w.storage_location).filter(Boolean))
@@ -133,6 +180,16 @@ const stats = computed(() => ({
   value:   filteredWines.value.reduce((s, w) => s + (w.value_per_bottle || 0) * (w.bottle_count || 0), 0)
 }))
 
+const selectedBottles = computed(() => selectedWines.value.reduce((s, w) => s + (w.bottle_count || 0), 0))
+
+const urgencyBreakdown = computed(() => {
+  const counts = {}
+  for (const w of filteredWines.value) {
+    if (w.urgency) counts[w.urgency] = (counts[w.urgency] || 0) + 1
+  }
+  return counts
+})
+
 function withUrgency(w) {
   return { ...w, urgency: w.window_end ? calcUrgency(w.window_end, w.window_mid) : (w.urgency || null) }
 }
@@ -182,6 +239,44 @@ async function loadWines() {
 
 function onSelect(wine) {
   selectedWine.value = wine
+}
+
+function onSelectionChanged(rows) { selectedWines.value = rows }
+
+function clearSelection() {
+  wineTableRef.value?.clearSelection()
+  selectedWines.value = []
+}
+
+function requestDelivery() {
+  const byMerchant = {}
+  for (const w of selectedWines.value) {
+    const m = w.merchant || 'Unknown merchant'
+    if (!byMerchant[m]) byMerchant[m] = []
+    byMerchant[m].push(w)
+  }
+  const emails = Object.entries(byMerchant).map(([merchant, wines]) => {
+    const lines = wines.map(w => `  - ${w.name} ${w.vintage || 'NV'} — ${w.bottle_count} × ${w.bottle_format || '75cl'}`).join('\n')
+    const totalBottles = wines.reduce((s, w) => s + (w.bottle_count || 0), 0)
+    const body = `Dear ${merchant} team,\n\nPlease arrange release from bond and delivery to our Vienna address for the following wines:\n\n${lines}\n\nTotal: ${wines.length} lot${wines.length !== 1 ? 's' : ''}, ${totalBottles} bottle${totalBottles !== 1 ? 's' : ''}.\n\nPlease ship to:\n[Your Vienna delivery address]\n\nThank you for your assistance.\n\nKind regards,\n[Your name]`
+    return { merchant, wines, body }
+  })
+  deliveryModal.value = { emails }
+}
+
+async function markForSale() {
+  if (!selectedWines.value.length) return
+  bulkSaving.value = true
+  const ids = selectedWines.value.map(w => w.id)
+  const { error } = await supabase.from('wines').update({ status: 'pending_listing', urgency: null }).in('id', ids)
+  if (!error) {
+    for (const id of ids) {
+      const idx = wines.value.findIndex(w => w.id === id)
+      if (idx !== -1) wines.value[idx] = { ...wines.value[idx], status: 'pending_listing' }
+    }
+    clearSelection()
+  }
+  bulkSaving.value = false
 }
 
 function onSaved(updated) {
@@ -328,4 +423,99 @@ body {
   color: #666;
 }
 .btn-clear:hover { background: #f5f5f5; }
+
+.summary-panel {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 16px;
+  background: #f9f9f9;
+  border-bottom: 1px solid #e0e0e0;
+  font-size: 0.8rem;
+  color: #555;
+  flex-shrink: 0;
+  flex-wrap: wrap;
+}
+.summary-toggle {
+  background: none; border: none; cursor: pointer;
+  font-size: 0.75rem; color: #888; padding: 0;
+}
+.sum-sep { color: #ccc; }
+.sum-stat { }
+.sum-urgency { padding: 1px 6px; border-radius: 10px; font-size: 0.75rem; }
+.sum-urgency.past_window { background: #ffcccc; color: #b71c1c; }
+.sum-urgency.closing_soon { background: #ffe0b2; color: #e65100; }
+.sum-urgency.near_midpoint { background: #fff9c4; color: #827717; }
+.sum-urgency.approaching_midpoint { background: #f9fbe7; color: #558b2f; }
+.sum-urgency.hold { background: #f0f0f0; color: #555; }
+
+.bulk-bar {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: #2c3e50;
+  color: white;
+  flex-shrink: 0;
+}
+.bulk-info { flex: 1; font-size: 0.85rem; }
+.btn-bulk-action {
+  padding: 5px 12px;
+  background: #8B1A1A;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+.btn-bulk-action:hover:not(:disabled) { background: #a02020; }
+.btn-bulk-action:disabled { opacity: 0.5; cursor: not-allowed; }
+.btn-bulk-action.btn-sale { background: #1a5c8b; }
+.btn-bulk-action.btn-sale:hover:not(:disabled) { background: #206ea8; }
+.btn-bulk-clear {
+  padding: 5px 10px;
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.4);
+  border-radius: 4px;
+  color: rgba(255,255,255,0.8);
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.overlay {
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.45);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100;
+}
+.delivery-modal {
+  background: white;
+  border-radius: 8px;
+  width: 680px;
+  max-width: 95vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+}
+.dm-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 20px; border-bottom: 1px solid #e0e0e0;
+}
+.dm-header h2 { font-size: 1rem; font-weight: 600; }
+.dm-header button { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888; }
+.dm-body { overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; }
+.dm-email { display: flex; flex-direction: column; gap: 8px; }
+.dm-merchant { font-weight: 600; font-size: 0.9rem; color: #2c3e50; }
+.dm-text {
+  width: 100%; font-family: inherit; font-size: 0.82rem;
+  border: 1px solid #ddd; border-radius: 4px; padding: 10px;
+  background: #fafafa; resize: vertical; color: #333;
+}
+.btn-copy {
+  align-self: flex-start; padding: 5px 12px;
+  background: #f0f0f0; border: 1px solid #ccc;
+  border-radius: 4px; font-size: 0.8rem; cursor: pointer;
+}
+.btn-copy:hover { background: #e5e5e5; }
 </style>
