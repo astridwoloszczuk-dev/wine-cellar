@@ -36,6 +36,8 @@ const columnDefs = [
   { field: 'vintage',          headerName: 'Vintage',    width: 88  },
   { field: 'category',         headerName: 'Category',   flex: 1.5, minWidth: 130 },
   { field: 'sub_region',       headerName: 'Sub-Region', flex: 1.5, minWidth: 130 },
+  { field: 'super_region',     headerName: 'Country',    flex: 1,   minWidth: 110 },
+  { field: 'grape_variety',    headerName: 'Grape',      flex: 1.5, minWidth: 130 },
   { field: 'merchant',         headerName: 'Merchant',   width: 115 },
   { field: 'storage_location', headerName: 'Location',   width: 140 },
   { field: 'bottle_count',     headerName: 'Btl',        width: 65,  type: 'numericColumn' },
