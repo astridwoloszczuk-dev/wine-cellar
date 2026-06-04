@@ -1,0 +1,57 @@
+{
+  "owner": {
+    "name": "Your Name",
+    "email": "your@email.com"
+  },
+
+  "delivery_address": [
+    "Line 1",
+    "Line 2",
+    "Vienna, Austria"
+  ],
+
+  "merchants": [
+    {
+      "name": "BBR",
+      "contact_name": "Stuart Rae",
+      "email": "stuart.rae@bbr.com",
+      "platform": "email"
+    },
+    {
+      "name": "Justerini",
+      "contact_name": "George Wilmoth",
+      "email": "",
+      "platform": "email"
+    },
+    {
+      "name": "IG",
+      "contact_name": "",
+      "email": "",
+      "platform": "email"
+    },
+    {
+      "name": "Fine and Rare",
+      "contact_name": "James Matthias",
+      "email": "",
+      "platform": "email"
+    },
+    {
+      "name": "Hatton Edwards",
+      "contact_name": "Jack Boone",
+      "email": "",
+      "platform": "email"
+    },
+    {
+      "name": "Lay Wheeler",
+      "contact_name": "Cameron Gates",
+      "email": "",
+      "platform": "email"
+    },
+    {
+      "name": "Robertson",
+      "contact_name": "",
+      "email": "",
+      "platform": "email"
+    }
+  ]
+}

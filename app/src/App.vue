@@ -96,7 +96,10 @@
         </div>
         <div class="dm-body">
           <div v-for="e in deliveryModal.emails" :key="e.merchant" class="dm-email">
-            <div class="dm-merchant">{{ e.merchant }} — {{ e.wines.length }} lot{{ e.wines.length !== 1 ? 's' : '' }}</div>
+            <div class="dm-merchant">
+              {{ e.merchant }} — {{ e.wines.length }} lot{{ e.wines.length !== 1 ? 's' : '' }}
+              <span v-if="e.email" class="dm-email-addr">{{ e.email }}</span>
+            </div>
             <textarea class="dm-text" :value="e.body" rows="14" readonly />
             <button class="btn-copy" @click="navigator.clipboard.writeText(e.body)">Copy to clipboard</button>
           </div>
@@ -129,6 +132,14 @@ const wineTableRef  = ref(null)
 const showSummary   = ref(true)
 const deliveryModal = ref(null)
 const bulkSaving    = ref(false)
+const cellarConfig  = ref(null)
+
+async function loadConfig() {
+  try {
+    const res = await fetch(import.meta.env.BASE_URL + 'cellar-config.json')
+    cellarConfig.value = await res.json()
+  } catch { /* config missing, use defaults */ }
+}
 
 const locationOptions = computed(() => {
   const s = new Set(wines.value.map(w => w.storage_location).filter(Boolean))
@@ -248,20 +259,38 @@ function clearSelection() {
   selectedWines.value = []
 }
 
-function requestDelivery() {
+async function requestDelivery() {
+  const cfg = cellarConfig.value || {}
+  const ownerName = cfg.owner?.name || '[Your name]'
+  const address   = (cfg.delivery_address || ['[Your Vienna delivery address]']).join('\n')
+
   const byMerchant = {}
   for (const w of selectedWines.value) {
     const m = w.merchant || 'Unknown merchant'
     if (!byMerchant[m]) byMerchant[m] = []
     byMerchant[m].push(w)
   }
-  const emails = Object.entries(byMerchant).map(([merchant, wines]) => {
-    const lines = wines.map(w => `  - ${w.name} ${w.vintage || 'NV'} — ${w.bottle_count} × ${w.bottle_format || '75cl'}`).join('\n')
-    const totalBottles = wines.reduce((s, w) => s + (w.bottle_count || 0), 0)
-    const body = `Dear ${merchant} team,\n\nPlease arrange release from bond and delivery to our Vienna address for the following wines:\n\n${lines}\n\nTotal: ${wines.length} lot${wines.length !== 1 ? 's' : ''}, ${totalBottles} bottle${totalBottles !== 1 ? 's' : ''}.\n\nPlease ship to:\n[Your Vienna delivery address]\n\nThank you for your assistance.\n\nKind regards,\n[Your name]`
-    return { merchant, wines, body }
+
+  const emails = Object.entries(byMerchant).map(([merchant, mWines]) => {
+    const contact = cfg.merchants?.find(m => m.name === merchant)
+    const greeting = contact?.contact_name ? `Dear ${contact.contact_name},` : `Dear ${merchant} team,`
+    const email     = contact?.email || ''
+    const lines     = mWines.map(w => `  - ${w.name} ${w.vintage || 'NV'} — ${w.bottle_count} × ${w.bottle_format || '75cl'}`).join('\n')
+    const totalBottles = mWines.reduce((s, w) => s + (w.bottle_count || 0), 0)
+    const body = `${greeting}\n\nPlease arrange release from bond and delivery to our Vienna address for the following wines:\n\n${lines}\n\nTotal: ${mWines.length} lot${mWines.length !== 1 ? 's' : ''}, ${totalBottles} bottle${totalBottles !== 1 ? 's' : ''}.\n\nPlease ship to:\n${address}\n\nThank you for your assistance.\n\nKind regards,\n${ownerName}`
+    return { merchant, wines: mWines, email, body }
   })
+
+  // Update storage_location to In transit for all selected wines
+  const ids = selectedWines.value.map(w => w.id)
+  await supabase.from('wines').update({ storage_location: 'In transit' }).in('id', ids)
+  for (const id of ids) {
+    const idx = wines.value.findIndex(w => w.id === id)
+    if (idx !== -1) wines.value[idx] = { ...wines.value[idx], storage_location: 'In transit' }
+  }
+
   deliveryModal.value = { emails }
+  clearSelection()
 }
 
 async function markForSale() {
@@ -305,6 +334,7 @@ async function signOut() {
 }
 
 onMounted(async () => {
+  loadConfig()
   const { data } = await supabase.auth.getSession()
   session.value = data.session
   supabase.auth.onAuthStateChange((_event, s) => { session.value = s })
@@ -506,7 +536,8 @@ body {
 .dm-header button { background: none; border: none; font-size: 1.1rem; cursor: pointer; color: #888; }
 .dm-body { overflow-y: auto; padding: 16px 20px; display: flex; flex-direction: column; gap: 20px; }
 .dm-email { display: flex; flex-direction: column; gap: 8px; }
-.dm-merchant { font-weight: 600; font-size: 0.9rem; color: #2c3e50; }
+.dm-merchant { font-weight: 600; font-size: 0.9rem; color: #2c3e50; display: flex; align-items: center; gap: 12px; }
+.dm-email-addr { font-weight: 400; font-size: 0.8rem; color: #888; }
 .dm-text {
   width: 100%; font-family: inherit; font-size: 0.82rem;
   border: 1px solid #ddd; border-radius: 4px; padding: 10px;
