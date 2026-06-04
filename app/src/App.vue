@@ -13,31 +13,23 @@
     </header>
 
     <div class="filter-bar">
-      <input v-model="filters.search" placeholder="Search wine, region…" class="filter-search" />
-      <select v-model="filters.status" class="filter-select">
-        <option value="">All statuses</option>
-        <option value="ordered">Ordered — not paid</option>
-        <option value="paid_not_delivered">Paid — not delivered</option>
-        <option value="in_storage">In storage</option>
-        <option value="pending_listing">Pending listing</option>
-        <option value="listed">Listed</option>
-        <option value="sold">Sold</option>
-        <option value="consumed">Consumed</option>
-        <option value="gifted">Gifted</option>
-      </select>
-      <select v-model="filters.location" class="filter-select">
-        <option value="">All locations</option>
-        <option v-for="loc in locations" :key="loc" :value="loc">{{ loc }}</option>
-      </select>
-      <select v-model="filters.urgency" class="filter-select">
-        <option value="">All urgency</option>
-        <option value="past_window">Past window</option>
-        <option value="closing_soon">Closing soon</option>
-        <option value="near_midpoint">Near midpoint</option>
-        <option value="approaching_midpoint">Approaching mid</option>
-        <option value="hold">Hold</option>
-      </select>
-      <button v-if="anyFilter" class="btn-clear" @click="clearFilters">Clear</button>
+      <input v-model="filters.search" placeholder="Search wine, region, grape…" class="filter-search" />
+      <MultiSelect
+        placeholder="Status"
+        :options="STATUSES"
+        v-model="filters.status"
+      />
+      <MultiSelect
+        placeholder="Location"
+        :options="locationOptions"
+        v-model="filters.location"
+      />
+      <MultiSelect
+        placeholder="Urgency"
+        :options="urgencyOptions"
+        v-model="filters.urgency"
+      />
+      <button v-if="anyFilter" class="btn-clear" @click="clearFilters">Clear all</button>
     </div>
 
     <div class="content" :class="{ 'panel-open': selectedWine }">
@@ -75,11 +67,12 @@
 <script setup>
 import { ref, computed, watch, onMounted } from 'vue'
 import { supabase } from './supabase'
-import { calcUrgency } from './utils/urgency'
+import { calcUrgency, STATUSES, STORAGE_LOCATIONS } from './utils/urgency'
 import WineTable from './components/WineTable.vue'
 import WinePanel from './components/WinePanel.vue'
 import AddWineModal from './components/AddWineModal.vue'
 import LoginScreen from './components/LoginScreen.vue'
+import MultiSelect from './components/MultiSelect.vue'
 
 const session = ref(null)
 
@@ -88,19 +81,30 @@ const allTastings  = ref([])
 const loading      = ref(true)
 const selectedWine = ref(null)
 const showAddModal = ref(false)
-const filters      = ref({ search: '', status: '', location: '', urgency: '' })
+const filters      = ref({ search: '', status: [], location: [], urgency: [] })
 
-const locations = computed(() => {
+const locationOptions = computed(() => {
   const s = new Set(wines.value.map(w => w.storage_location).filter(Boolean))
-  return [...s].sort()
+  return [...s].sort().map(l => ({ value: l, label: l }))
 })
 
+const urgencyOptions = [
+  { value: 'past_window',          label: 'Past window' },
+  { value: 'closing_soon',         label: 'Closing soon' },
+  { value: 'near_midpoint',        label: 'Near midpoint' },
+  { value: 'approaching_midpoint', label: 'Approaching mid' },
+  { value: 'hold',                 label: 'Hold' },
+]
+
 const anyFilter = computed(() =>
-  Object.values(filters.value).some(v => v !== '')
+  filters.value.search !== '' ||
+  filters.value.status.length > 0 ||
+  filters.value.location.length > 0 ||
+  filters.value.urgency.length > 0
 )
 
 function clearFilters() {
-  filters.value = { search: '', status: '', location: '', urgency: '' }
+  filters.value = { search: '', status: [], location: [], urgency: [] }
 }
 
 const filteredWines = computed(() => {
@@ -117,9 +121,9 @@ const filteredWines = computed(() => {
       String(w.vintage || '').includes(q)
     )
   }
-  if (status)   r = r.filter(w => w.status           === status)
-  if (location) r = r.filter(w => w.storage_location === location)
-  if (urgency)  r = r.filter(w => w.urgency          === urgency)
+  if (status.length)   r = r.filter(w => status.includes(w.status))
+  if (location.length) r = r.filter(w => location.includes(w.storage_location))
+  if (urgency.length)  r = r.filter(w => urgency.includes(w.urgency))
   return r
 })
 
