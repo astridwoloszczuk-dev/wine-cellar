@@ -9,7 +9,7 @@ let
     Combined = List.Combine({Page1, Page2}),
     AsTable = Table.FromList(Combined, Splitter.SplitByNothing()),
     Expanded = Table.ExpandRecordColumn(AsTable, "Column1", {
-        "id", "name", "category", "sub_region", "vintage",
+        "id", "name", "category", "sub_region", "super_region", "grape_variety", "vintage",
         "merchant", "storage_location",
         "bottle_count", "bottle_format",
         "cost_per_bottle", "value_per_bottle",

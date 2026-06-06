@@ -14,22 +14,103 @@
 
     <div class="filter-bar">
       <input v-model="filters.search" placeholder="Search wine, region, grape…" class="filter-search" />
-      <MultiSelect
-        placeholder="Status"
-        :options="STATUSES"
-        v-model="filters.status"
-      />
-      <MultiSelect
-        placeholder="Location"
-        :options="locationOptions"
-        v-model="filters.location"
-      />
-      <MultiSelect
-        placeholder="Urgency"
-        :options="urgencyOptions"
-        v-model="filters.urgency"
-      />
+      <button class="btn-filters" :class="{ active: activeFilterCount > 0 }" @click="showFilters = !showFilters">
+        Filters{{ activeFilterCount > 0 ? ` (${activeFilterCount})` : '' }} {{ showFilters ? '▲' : '▼' }}
+      </button>
       <button v-if="anyFilter" class="btn-clear" @click="clearFilters">Clear all</button>
+    </div>
+
+    <div v-if="showFilters" class="filter-panel">
+      <div class="filter-grid">
+        <div class="filter-item">
+          <label>Wine name</label>
+          <input v-model="filters.name" placeholder="contains…" class="fi-text" />
+        </div>
+        <div class="filter-item">
+          <label>Vintage</label>
+          <div class="fi-range">
+            <select v-model="filters.vintage.op" class="fi-op">
+              <option value="">—</option>
+              <option value="eq">=</option>
+              <option value="lt">before</option>
+              <option value="gt">after</option>
+              <option value="between">between</option>
+            </select>
+            <input v-if="filters.vintage.op" v-model.number="filters.vintage.val1" type="number" placeholder="year" class="fi-num" />
+            <input v-if="filters.vintage.op === 'between'" v-model.number="filters.vintage.val2" type="number" placeholder="year" class="fi-num" />
+          </div>
+        </div>
+        <div class="filter-item">
+          <label>Category</label>
+          <MultiSelect placeholder="Any" :options="categoryOptions" v-model="filters.category" />
+        </div>
+        <div class="filter-item">
+          <label>Sub-region</label>
+          <MultiSelect placeholder="Any" :options="subRegionOptions" v-model="filters.sub_region" />
+        </div>
+        <div class="filter-item">
+          <label>Country</label>
+          <MultiSelect placeholder="Any" :options="countryOptions" v-model="filters.country" />
+        </div>
+        <div class="filter-item">
+          <label>Grape</label>
+          <input v-model="filters.grape" placeholder="contains…" class="fi-text" />
+        </div>
+        <div class="filter-item">
+          <label>Merchant</label>
+          <MultiSelect placeholder="Any" :options="merchantOptions" v-model="filters.merchant" />
+        </div>
+        <div class="filter-item">
+          <label>Location</label>
+          <MultiSelect placeholder="Any" :options="locationOptions" v-model="filters.location" />
+        </div>
+        <div class="filter-item">
+          <label>Bottles</label>
+          <div class="fi-range">
+            <select v-model="filters.bottles.op" class="fi-op">
+              <option value="">—</option>
+              <option value="lt">&lt;</option>
+              <option value="gt">&gt;</option>
+              <option value="between">between</option>
+            </select>
+            <input v-if="filters.bottles.op" v-model.number="filters.bottles.val1" type="number" class="fi-num" />
+            <input v-if="filters.bottles.op === 'between'" v-model.number="filters.bottles.val2" type="number" class="fi-num" />
+          </div>
+        </div>
+        <div class="filter-item">
+          <label>Cost/btl (£)</label>
+          <div class="fi-range">
+            <select v-model="filters.cost.op" class="fi-op">
+              <option value="">—</option>
+              <option value="lt">&lt;</option>
+              <option value="gt">&gt;</option>
+              <option value="between">between</option>
+            </select>
+            <input v-if="filters.cost.op" v-model.number="filters.cost.val1" type="number" class="fi-num" />
+            <input v-if="filters.cost.op === 'between'" v-model.number="filters.cost.val2" type="number" class="fi-num" />
+          </div>
+        </div>
+        <div class="filter-item">
+          <label>Window Start</label>
+          <MultiSelect placeholder="Any year" :options="windowStartOptions" v-model="filters.window_start" />
+        </div>
+        <div class="filter-item">
+          <label>Window End</label>
+          <MultiSelect placeholder="Any year" :options="windowEndOptions" v-model="filters.window_end" />
+        </div>
+        <div class="filter-item">
+          <label>Urgency</label>
+          <MultiSelect placeholder="Any" :options="urgencyOptions" v-model="filters.urgency" />
+        </div>
+        <div class="filter-item">
+          <label>Status</label>
+          <MultiSelect placeholder="Any" :options="STATUSES" v-model="filters.status" />
+        </div>
+        <div class="filter-item">
+          <label>Working notes</label>
+          <input v-model="filters.working_notes" placeholder="contains…" class="fi-text" />
+        </div>
+      </div>
     </div>
 
     <div class="summary-panel">
@@ -51,9 +132,17 @@
 
     <div v-if="selectedWines.length" class="bulk-bar">
       <span class="bulk-info">{{ selectedWines.length }} wine{{ selectedWines.length !== 1 ? 's' : '' }} selected — {{ selectedBottles }} bottle{{ selectedBottles !== 1 ? 's' : '' }}</span>
-      <button class="btn-bulk-action" @click="requestDelivery">📦 Request delivery</button>
-      <button class="btn-bulk-action btn-sale" @click="markForSale" :disabled="bulkSaving">🏷 Mark for sale</button>
-      <button class="btn-bulk-clear" @click="clearSelection">✕ Clear</button>
+      <template v-if="bulkNoteMode">
+        <input v-model="bulkNoteText" class="bulk-note-input" placeholder="e.g. possible sale…" @keyup.enter="applyBulkNote" @keyup.esc="bulkNoteMode = false" autofocus />
+        <button class="btn-bulk-action" @click="applyBulkNote" :disabled="bulkSaving">Apply</button>
+        <button class="btn-bulk-clear" @click="bulkNoteMode = false">✕</button>
+      </template>
+      <template v-else>
+        <button class="btn-bulk-action" @click="requestDelivery">📦 Request delivery</button>
+        <button class="btn-bulk-action btn-sale" @click="markForSale" :disabled="bulkSaving">🏷 Mark for sale</button>
+        <button class="btn-bulk-action btn-note" @click="bulkNoteMode = true; bulkNoteText = ''">📝 Set note</button>
+        <button class="btn-bulk-clear" @click="clearSelection">✕ Clear</button>
+      </template>
     </div>
 
     <div class="content" :class="{ 'panel-open': selectedWine }">
@@ -126,13 +215,37 @@ const allTastings  = ref([])
 const loading      = ref(true)
 const selectedWine = ref(null)
 const showAddModal = ref(false)
-const filters      = ref({ search: '', status: [], location: [], urgency: [] })
+const showFilters  = ref(false)
+const filters      = ref(emptyFilters())
 const selectedWines = ref([])
 const wineTableRef  = ref(null)
 const showSummary   = ref(true)
 const deliveryModal = ref(null)
 const bulkSaving    = ref(false)
+const bulkNoteMode  = ref(false)
+const bulkNoteText  = ref('')
 const cellarConfig  = ref(null)
+
+function emptyFilters() {
+  return {
+    search: '',
+    name: '',
+    vintage: { op: '', val1: null, val2: null },
+    category: [],
+    sub_region: [],
+    country: [],
+    grape: '',
+    merchant: [],
+    location: [],
+    bottles: { op: '', val1: null, val2: null },
+    cost: { op: '', val1: null, val2: null },
+    window_start: [],
+    window_end: [],
+    urgency: [],
+    status: [],
+    working_notes: '',
+  }
+}
 
 async function loadConfig() {
   try {
@@ -141,10 +254,23 @@ async function loadConfig() {
   } catch { /* config missing, use defaults */ }
 }
 
-const locationOptions = computed(() => {
-  const s = new Set(wines.value.map(w => w.storage_location).filter(Boolean))
-  return [...s].sort().map(l => ({ value: l, label: l }))
-})
+const BLANK = '__blank__'
+
+function makeOptions(vals, withBlank = false) {
+  const filled = [...new Set(vals.filter(v => v != null && v !== ''))].sort().map(v => ({ value: v, label: String(v) }))
+  const hasBlank = vals.some(v => v == null || v === '')
+  if (withBlank && hasBlank) filled.push({ value: BLANK, label: '(blank)' })
+  return filled
+}
+
+const categoryOptions    = computed(() => makeOptions(wines.value.map(w => w.category), true))
+const subRegionOptions   = computed(() => makeOptions(wines.value.map(w => w.sub_region), true))
+const countryOptions     = computed(() => makeOptions(wines.value.map(w => w.super_region), true))
+const merchantOptions    = computed(() => makeOptions(wines.value.map(w => w.merchant), true))
+const locationOptions    = computed(() => makeOptions(wines.value.map(w => w.storage_location), true))
+const windowStartOptions = computed(() => makeOptions(wines.value.map(w => w.window_start), true))
+const windowMidOptions   = computed(() => makeOptions(wines.value.map(w => w.window_mid), true))
+const windowEndOptions   = computed(() => makeOptions(wines.value.map(w => w.window_end), true))
 
 const urgencyOptions = [
   { value: 'past_window',          label: 'Past window' },
@@ -152,36 +278,73 @@ const urgencyOptions = [
   { value: 'near_midpoint',        label: 'Near midpoint' },
   { value: 'approaching_midpoint', label: 'Approaching mid' },
   { value: 'hold',                 label: 'Hold' },
+  { value: BLANK,                  label: '(blank)' },
 ]
 
-const anyFilter = computed(() =>
-  filters.value.search !== '' ||
-  filters.value.status.length > 0 ||
-  filters.value.location.length > 0 ||
-  filters.value.urgency.length > 0
-)
+function matchesMulti(value, selected) {
+  if (selected.includes(BLANK)) {
+    if (value == null || value === '') return true
+    return selected.some(s => s !== BLANK && s === value)
+  }
+  return selected.includes(value)
+}
+
+function matchesRange(value, { op, val1, val2 }) {
+  if (!op || val1 == null) return true
+  const v = Number(value)
+  if (op === 'eq')      return v === val1
+  if (op === 'lt')      return v < val1
+  if (op === 'gt')      return v > val1
+  if (op === 'between') return val2 != null ? v >= val1 && v <= val2 : v >= val1
+  return true
+}
+
+const activeFilterCount = computed(() => {
+  const f = filters.value
+  return [
+    f.name, f.vintage.op, f.grape, f.bottles.op, f.cost.op, f.working_notes,
+    ...f.category, ...f.sub_region, ...f.country, ...f.merchant,
+    ...f.location, ...f.window_start, ...f.window_end,
+    ...f.urgency, ...f.status,
+  ].filter(Boolean).length
+})
+
+const anyFilter = computed(() => filters.value.search !== '' || activeFilterCount.value > 0)
 
 function clearFilters() {
-  filters.value = { search: '', status: [], location: [], urgency: [] }
+  filters.value = emptyFilters()
 }
 
 const filteredWines = computed(() => {
   let r = wines.value
-  const { search, status, location, urgency } = filters.value
-  if (search) {
-    const q = search.toLowerCase()
+  const f = filters.value
+
+  if (f.search) {
+    const q = f.search.toLowerCase()
     r = r.filter(w =>
-      (w.name         || '').toLowerCase().includes(q) ||
-      (w.sub_region   || '').toLowerCase().includes(q) ||
-      (w.category     || '').toLowerCase().includes(q) ||
-      (w.grape_variety|| '').toLowerCase().includes(q) ||
-      (w.super_region || '').toLowerCase().includes(q) ||
+      (w.name          || '').toLowerCase().includes(q) ||
+      (w.sub_region    || '').toLowerCase().includes(q) ||
+      (w.category      || '').toLowerCase().includes(q) ||
+      (w.grape_variety || '').toLowerCase().includes(q) ||
+      (w.super_region  || '').toLowerCase().includes(q) ||
       String(w.vintage || '').includes(q)
     )
   }
-  if (status.length)   r = r.filter(w => status.includes(w.status))
-  if (location.length) r = r.filter(w => location.includes(w.storage_location))
-  if (urgency.length)  r = r.filter(w => urgency.includes(w.urgency))
+  if (f.name)               r = r.filter(w => (w.name || '').toLowerCase().includes(f.name.toLowerCase()))
+  if (f.vintage.op)         r = r.filter(w => matchesRange(w.vintage, f.vintage))
+  if (f.category.length)    r = r.filter(w => matchesMulti(w.category, f.category))
+  if (f.sub_region.length)  r = r.filter(w => matchesMulti(w.sub_region, f.sub_region))
+  if (f.country.length)     r = r.filter(w => matchesMulti(w.super_region, f.country))
+  if (f.grape)              r = r.filter(w => (w.grape_variety || '').toLowerCase().includes(f.grape.toLowerCase()))
+  if (f.merchant.length)    r = r.filter(w => matchesMulti(w.merchant, f.merchant))
+  if (f.location.length)    r = r.filter(w => matchesMulti(w.storage_location, f.location))
+  if (f.bottles.op)         r = r.filter(w => matchesRange(w.bottle_count, f.bottles))
+  if (f.cost.op)            r = r.filter(w => matchesRange(w.cost_per_bottle, f.cost))
+  if (f.window_start.length)  r = r.filter(w => matchesMulti(w.window_start, f.window_start))
+  if (f.window_end.length)    r = r.filter(w => matchesMulti(w.window_end, f.window_end))
+  if (f.urgency.length)       r = r.filter(w => matchesMulti(w.urgency, f.urgency))
+  if (f.status.length)        r = r.filter(w => matchesMulti(w.status, f.status))
+  if (f.working_notes)        r = r.filter(w => (w.working_notes || '').toLowerCase().includes(f.working_notes.toLowerCase()))
   return r
 })
 
@@ -281,7 +444,6 @@ async function requestDelivery() {
     return { merchant, wines: mWines, email, body }
   })
 
-  // Update storage_location to In transit for all selected wines
   const ids = selectedWines.value.map(w => w.id)
   await supabase.from('wines').update({ storage_location: 'In transit' }).in('id', ids)
   for (const id of ids) {
@@ -291,6 +453,22 @@ async function requestDelivery() {
 
   deliveryModal.value = { emails }
   clearSelection()
+}
+
+async function applyBulkNote() {
+  if (!selectedWines.value.length) return
+  bulkSaving.value = true
+  const ids = selectedWines.value.map(w => w.id)
+  const { error } = await supabase.from('wines').update({ working_notes: bulkNoteText.value || null }).in('id', ids)
+  if (!error) {
+    for (const id of ids) {
+      const idx = wines.value.findIndex(w => w.id === id)
+      if (idx !== -1) wines.value[idx] = { ...wines.value[idx], working_notes: bulkNoteText.value || null }
+    }
+    bulkNoteMode.value = false
+    clearSelection()
+  }
+  bulkSaving.value = false
 }
 
 async function markForSale() {
@@ -385,6 +563,7 @@ body {
 .logo { font-size: 1.4rem; }
 .header h1 { font-size: 1.15rem; font-weight: 600; letter-spacing: 0.02em; }
 
+/* ── Filter bar ── */
 .filter-bar {
   display: flex;
   align-items: center;
@@ -396,52 +575,23 @@ body {
 }
 .filter-search {
   flex: 1;
-  max-width: 280px;
   padding: 5px 10px;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.875rem;
 }
-.filter-select {
-  padding: 5px 8px;
+.btn-filters {
+  padding: 5px 12px;
+  background: white;
   border: 1px solid #ccc;
   border-radius: 4px;
   font-size: 0.875rem;
-  background: white;
-}
-
-.content {
-  display: flex;
-  flex: 1;
-  min-height: 0;
-}
-.content.panel-open .table-wrap { flex: 3; }
-
-.footer {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 16px;
-  background: white;
-  border-top: 1px solid #e0e0e0;
-  font-size: 0.8rem;
-  color: #555;
-  flex-shrink: 0;
-}
-.sep { color: #ccc; }
-.filter-note { color: #888; }
-
-.btn-primary {
-  padding: 6px 14px;
-  background: #8B1A1A;
-  color: white;
-  border: none;
-  border-radius: 4px;
-  font-size: 0.875rem;
   cursor: pointer;
-  font-weight: 500;
+  color: #555;
+  white-space: nowrap;
 }
-.btn-primary:hover { background: #a02020; }
+.btn-filters:hover { background: #f5f5f5; }
+.btn-filters.active { border-color: #8B1A1A; color: #8B1A1A; font-weight: 600; }
 
 .btn-clear {
   padding: 5px 10px;
@@ -454,6 +604,59 @@ body {
 }
 .btn-clear:hover { background: #f5f5f5; }
 
+/* ── Filter panel ── */
+.filter-panel {
+  background: #fafafa;
+  border-bottom: 1px solid #e0e0e0;
+  padding: 12px 16px;
+  flex-shrink: 0;
+}
+.filter-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px 16px;
+}
+.filter-item {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.filter-item label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #888;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.fi-text {
+  width: 100%;
+  padding: 4px 8px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+.fi-range {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+}
+.fi-op {
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  background: white;
+  flex-shrink: 0;
+}
+.fi-num {
+  width: 72px;
+  padding: 4px 6px;
+  border: 1px solid #ccc;
+  border-radius: 4px;
+  font-size: 0.82rem;
+}
+
+/* ── Summary panel ── */
 .summary-panel {
   display: flex;
   align-items: center;
@@ -471,7 +674,6 @@ body {
   font-size: 0.75rem; color: #888; padding: 0;
 }
 .sum-sep { color: #ccc; }
-.sum-stat { }
 .sum-urgency { padding: 1px 6px; border-radius: 10px; font-size: 0.75rem; }
 .sum-urgency.past_window { background: #ffcccc; color: #b71c1c; }
 .sum-urgency.closing_soon { background: #ffe0b2; color: #e65100; }
@@ -479,6 +681,7 @@ body {
 .sum-urgency.approaching_midpoint { background: #f9fbe7; color: #558b2f; }
 .sum-urgency.hold { background: #f0f0f0; color: #555; }
 
+/* ── Bulk bar ── */
 .bulk-bar {
   display: flex;
   align-items: center;
@@ -511,7 +714,56 @@ body {
   font-size: 0.8rem;
   cursor: pointer;
 }
+.btn-bulk-action.btn-note { background: #4a6741; }
+.btn-bulk-action.btn-note:hover { background: #5a7a50; }
+.bulk-note-input {
+  padding: 4px 8px;
+  border: 1px solid rgba(255,255,255,0.5);
+  border-radius: 4px;
+  font-size: 0.82rem;
+  background: rgba(255,255,255,0.15);
+  color: white;
+  width: 220px;
+}
+.bulk-note-input::placeholder { color: rgba(255,255,255,0.5); }
 
+/* ── Content ── */
+.content {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+.content.panel-open .table-wrap { flex: 3; }
+
+/* ── Footer ── */
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 16px;
+  background: white;
+  border-top: 1px solid #e0e0e0;
+  font-size: 0.8rem;
+  color: #555;
+  flex-shrink: 0;
+}
+.sep { color: #ccc; }
+.filter-note { color: #888; }
+
+/* ── Buttons ── */
+.btn-primary {
+  padding: 6px 14px;
+  background: #8B1A1A;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  font-size: 0.875rem;
+  cursor: pointer;
+  font-weight: 500;
+}
+.btn-primary:hover { background: #a02020; }
+
+/* ── Delivery modal ── */
 .overlay {
   position: fixed; inset: 0;
   background: rgba(0,0,0,0.45);

@@ -101,9 +101,7 @@ const columnDefs = [
 const defaultColDef = {
   sortable: true,
   resizable: true,
-  filter: true,
-  floatingFilter: true,
-  filterParams: { debounceMs: 0, buttons: ['reset'] },
+  filter: false,
 }
 
 const getRowStyle = p => p.data?.id === props.selectedId
@@ -127,15 +125,3 @@ const getRowStyle = p => p.data?.id === props.selectedId
 }
 </style>
 
-<style>
-/* Floating filter inputs — white background, legible */
-.ag-theme-alpine .ag-floating-filter-input input,
-.ag-theme-alpine .ag-floating-filter-body input {
-  background: white !important;
-  color: #2c3e50 !important;
-  opacity: 1 !important;
-}
-.ag-theme-alpine .ag-floating-filter {
-  background: #f0f0f0 !important;
-}
-</style>

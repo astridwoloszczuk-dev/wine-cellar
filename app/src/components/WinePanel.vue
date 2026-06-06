@@ -28,9 +28,15 @@
 
       <section class="section">
         <h3>Identity</h3>
-        <div class="field">
-          <label>Grape variety</label>
-          <input v-model="form.grape_variety" type="text" placeholder="e.g. Pinot Noir" />
+        <div class="field-row">
+          <div class="field">
+            <label>Vintage</label>
+            <input v-model.number="form.vintage" type="number" placeholder="e.g. 2015" />
+          </div>
+          <div class="field">
+            <label>Grape variety</label>
+            <input v-model="form.grape_variety" type="text" placeholder="e.g. Pinot Noir" />
+          </div>
         </div>
         <div class="field">
           <label>Country</label>
@@ -133,6 +139,13 @@
       </section>
 
       <section class="section">
+        <h3>Working notes</h3>
+        <div class="field">
+          <textarea v-model="form.working_notes" rows="2" placeholder="e.g. possible sale, possible delivery…" />
+        </div>
+      </section>
+
+      <section class="section">
         <h3>Notes</h3>
         <div class="field">
           <textarea v-model="form.notes" rows="3" placeholder="Any notes…" />
@@ -231,6 +244,7 @@ if (props.wine?.id) loadTastings(props.wine.id)
 
 function toForm(w) {
   return {
+    vintage:              w.vintage               ?? null,
     status:               w.status               || 'in_storage',
     storage_location:     w.storage_location      || '',
     grape_variety:        w.grape_variety          || '',
@@ -246,6 +260,7 @@ function toForm(w) {
     window_start:         w.window_start          || '',
     window_mid:           w.window_mid            || '',
     window_end:           w.window_end            || '',
+    working_notes:        w.working_notes          || '',
     notes:                w.notes                 || '',
   }
 }
@@ -264,6 +279,7 @@ async function save() {
   saved.value  = false
 
   const payload = {
+    vintage:              form.value.vintage               || null,
     status:               form.value.status,
     storage_location:     form.value.storage_location     || null,
     grape_variety:        form.value.grape_variety         || null,
@@ -279,6 +295,7 @@ async function save() {
     window_start:         form.value.window_start          || null,
     window_mid:           form.value.window_mid            || null,
     window_end:           form.value.window_end            || null,
+    working_notes:        form.value.working_notes         || null,
     notes:                form.value.notes                 || null,
     urgency:              urgency.value,
   }
